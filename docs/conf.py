@@ -40,7 +40,7 @@ meta = get_project_metadata()
 project = 'Tether'
 copyright = '2025, Khushiyant'
 author = meta.get("author", "Khushiyant")
-release = meta.get("release", "0.6.0")
+release = meta.get("release", "0.1.0")
 
 extensions = [
     'sphinx.ext.autodoc',      # Core library for html generation from docstrings
