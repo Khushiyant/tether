@@ -80,7 +80,7 @@ def benchmark():
     for _ in range(10):
         with torch.no_grad():
             _ = lif_pytorch(x_seq, v_init, decay, threshold)
-            LIFSubFunction.apply(x_seq, v_init, decay, threshold, alpha)
+            LIFSubFunction.apply(x_seq, v_init, decay, threshold, alpha, 0)
     
     # Benchmark PyTorch
     torch.cuda.synchronize()
@@ -99,7 +99,7 @@ def benchmark():
     with torch.no_grad():
         for _ in range(iterations):
             # Note: We use apply but inside no_grad, so it just runs forward
-            LIFSubFunction.apply(x_seq, v_init, decay, threshold, alpha)
+            LIFSubFunction.apply(x_seq, v_init, decay, threshold, alpha, 0)
     torch.cuda.synchronize()
     triton_time = (time.time() - start_time) / iterations
     print(f"Triton Time:  {triton_time * 1000:.3f} ms")

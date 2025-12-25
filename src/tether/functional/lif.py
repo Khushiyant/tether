@@ -4,7 +4,7 @@ from ..kernels.lif import lif_fwd_kernel, lif_bwd_kernel
 
 class LIFSubFunction(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, x_seq, v_init, decay, threshold, alpha):
+    def forward(ctx, x_seq, v_init, decay, threshold, alpha, surrogate_type):
         """
         Forward pass of the LIF function.
 
@@ -22,6 +22,8 @@ class LIFSubFunction(torch.autograd.Function):
             Spiking threshold.
         alpha : torch.Tensor
             Surrogate gradient parameter.
+        surrogate_type : int
+            Type of surrogate gradient.
 
         Returns
         -------
@@ -49,10 +51,12 @@ class LIFSubFunction(torch.autograd.Function):
         
         # Save packed spikes for backward to save memory
         ctx.save_for_backward(out_spikes_packed, v_seq, v_init, decay, threshold, alpha)
-        return out_spikes, v_final
+        ctx.surrogate_type = surrogate_type
+        ctx.mark_non_differentiable(v_seq)
+        return out_spikes, v_final, v_seq
 
     @staticmethod
-    def backward(ctx, grad_spikes, grad_v_final):
+    def backward(ctx, grad_spikes, grad_v_final, grad_v_seq):
         """
         Backward pass of the LIF function.
 
@@ -64,6 +68,8 @@ class LIFSubFunction(torch.autograd.Function):
             Gradients w.r.t. spikes.
         grad_v_final : torch.Tensor
             Gradients w.r.t. final membrane potentials.
+        grad_v_seq : torch.Tensor
+            Gradients w.r.t. voltage sequence.
 
         Returns
         -------
@@ -71,6 +77,7 @@ class LIFSubFunction(torch.autograd.Function):
             Gradients w.r.t. inputs and parameters.
         """
         out_spikes_packed, v_seq, v_init, decay, threshold, alpha = ctx.saved_tensors
+        surrogate_type = ctx.surrogate_type
         n_steps, n_neurons = v_seq.shape
         
         grad_x = torch.empty_like(v_seq)
@@ -91,8 +98,9 @@ class LIFSubFunction(torch.autograd.Function):
             grad_v_final.contiguous(), v_init.contiguous(),
             n_neurons, n_steps, decay, threshold, alpha,
             grad_decay, grad_threshold, grad_alpha,
+            surrogate_type,
             BLOCK_SIZE=1024
         )
         
-        # Returns grads for (x_seq, v_init, decay, threshold, alpha)
-        return grad_x, grad_v_final, grad_decay, grad_threshold, grad_alpha
+        # Returns grads for (x_seq, v_init, decay, threshold, alpha, surrogate_type)
+        return grad_x, grad_v_final, grad_decay, grad_threshold, grad_alpha, None
