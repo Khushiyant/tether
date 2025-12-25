@@ -1,0 +1,42 @@
+name: Build and Deploy Docs
+on:
+  push:
+    branches:
+      - main  # Set this to your default branch
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra docs
+
+      - name: Build Sphinx Documentation
+        run: |
+          # Generate RST files from source if they don't exist
+          uv run sphinx-apidoc -o docs/ src/tether/
+          # Build the HTML
+          cd docs && uv run make html
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs/_build/html # The folder the action should deploy.
+          branch: gh-pages # The branch the action should deploy to.
