@@ -1,14 +1,17 @@
 [project]
 name = "tether"
-version = "0.1.0"
+version = "0.0.1"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
     "numpy>=2.4.0",
     "torch>=2.9.1",
     "triton>=3.5.1",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [build-system]
 requires = ["hatchling"]
@@ -18,3 +21,11 @@ build-backend = "hatchling.build"
 dev = [
     "pytest>=9.0.2",
 ]
+
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+branch = "main"
+upload_to_pypi = false
+upload_to_release = true
+build_command = "pip install build && python -m build"
