@@ -1,26 +1,21 @@
 [project]
-name = "tether"
+name = "tetherpy"
 version = "0.0.1"
 description = "Triton-powered framework for training and deploying Spiking Transformers."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "numpy",
-    "torch",
-    "triton",
-]
+dependencies = ["numpy", "torch", "triton"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=9.0.2",
-]
+dev = ["pytest>=9.0.2"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tetherpy"]
 
 
 [tool.semantic_release]
