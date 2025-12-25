@@ -1,7 +1,7 @@
 [project]
 name = "tether"
 version = "0.0.1"
-description = "Add your description here"
+description = "Triton-powered framework for training and deploying Spiking Transformers."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
