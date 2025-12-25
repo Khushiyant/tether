@@ -10,4 +10,8 @@ wheels/
 .venv
 uv.lock
 input.txt
+
+# Sphinx build artifacts
 docs/_build/
+docs/tether.*.rst
+docs/modules.rst

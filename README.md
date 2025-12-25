@@ -52,5 +52,5 @@ This will:
 
 ## License
 
-[Apache-2.0](./LICENSE)
+[Apache-2.0](https://github.com/Khushiyant/tether/blob/main/LICENSE)
 

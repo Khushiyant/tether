@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 # Ensure Sphinx can find the source code
 sys.path.insert(0, os.path.abspath("../src"))
 
@@ -8,7 +9,7 @@ def get_project_metadata():
     import pathlib
     import sys
 
-    pyproject_path = pathlib.Path(__file__).parents[2] / "pyproject.toml"
+    pyproject_path = pathlib.Path(__file__).parents[1] / "pyproject.toml"
     if sys.version_info >= (3, 11):
         import tomllib
 
@@ -62,3 +63,7 @@ html_theme_options = {
     "source_branch": "main",
     "source_directory": "docs/source/",
 }
+
+suppress_warnings = [
+    'myst.xref_missing',  # Suppress MyST cross-reference errors
+]
