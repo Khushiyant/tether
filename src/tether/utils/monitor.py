@@ -7,14 +7,27 @@ from ..nn.plif import PLIF
 
 class Monitor:
     """
-    Utility for monitoring SNN statistics (firing rates, membrane potentials).
+    Utility for monitoring Spiking Neural Network (SNN) statistics.
+    
+    This class tracks firing rates and membrane potential traces for supported layers 
+    (LIF, ALIF, PLIF) to aid in debugging and visualization.
+
+    Parameters
+    ----------
+    model : nn.Module
+        The PyTorch model to monitor.
     """
     def __init__(self, model: nn.Module):
         self.model = model
 
     def get_firing_rates(self) -> Dict[str, float]:
         """
-        Retrieve the latest firing rates from all layers that track it (e.g. LIF).
+        Retrieve the latest mean firing rates from all supported layers.
+
+        Returns
+        -------
+        Dict[str, float]
+            Dictionary mapping layer names to their most recent mean firing rate.
         """
         rates = {}
         for name, module in self.model.named_modules():
@@ -24,7 +37,15 @@ class Monitor:
 
     def get_voltage_traces(self) -> Dict[str, torch.Tensor]:
         """
-        Retrieve voltage traces from LIF layers (requires store_traces=True).
+        Retrieve recorded membrane potential traces from layers where monitoring is enabled.
+        
+        Requires `store_traces=True` to be set on the layers (via `enable_voltage_monitoring`).
+
+        Returns
+        -------
+        Dict[str, torch.Tensor]
+            Dictionary mapping layer names to their voltage trace tensors.
+            Shape of trace: (Time, Batch, Neurons) or (Time, Batch*Neurons) depending on layer.
         """
         traces = {}
         for name, module in self.model.named_modules():
@@ -34,7 +55,13 @@ class Monitor:
 
     def enable_voltage_monitoring(self, enable: bool = True):
         """
-        Enable or disable voltage trace storage on all LIF layers.
+        Enable or disable voltage trace storage on all supported layers.
+        
+        Parameters
+        ----------
+        enable : bool, optional
+            If True, enables trace storage. If False, disables it to save memory. 
+            Default is True.
         """
         for module in self.model.modules():
             if isinstance(module, (LIF, ALIF, PLIF)):

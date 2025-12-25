@@ -6,29 +6,33 @@ class LIFSubFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x_seq, v_init, decay, threshold, alpha, surrogate_type):
         """
-        Forward pass of the LIF function.
+        Forward pass of the Leaky Integrate-and-Fire (LIF) function.
+        
+        Uses fused Triton kernels for high-performance execution.
 
         Parameters
         ----------
         ctx : context
-            Context for saving tensors.
+            Context object for saving tensors for the backward pass.
         x_seq : torch.Tensor
-            Input sequence of shape (n_steps, n_neurons).
+            Input spike/current sequence. Shape: (n_steps, batch_size * n_neurons).
         v_init : torch.Tensor
-            Initial membrane potentials of shape (n_neurons,).
+            Initial membrane potentials. Shape: (batch_size * n_neurons,).
         decay : torch.Tensor
-            Decay factor.
+            Decay factor (scalar).
         threshold : torch.Tensor
-            Spiking threshold.
+            Spiking threshold (scalar).
         alpha : torch.Tensor
-            Surrogate gradient parameter.
+            Surrogate gradient scaling parameter (scalar).
         surrogate_type : int
-            Type of surrogate gradient.
+            Integer ID representing the surrogate gradient function.
 
         Returns
         -------
         tuple
-            Spikes and final membrane potentials.
+            - spikes (torch.Tensor): Output spike sequence. Shape same as x_seq.
+            - v_final (torch.Tensor): Final membrane potentials. Shape same as v_init.
+            - v_seq (torch.Tensor): Membrane potential sequence. Shape same as x_seq.
         """
         x_seq, v_init = x_seq.contiguous(), v_init.contiguous()
         n_steps, n_neurons = x_seq.shape
@@ -59,22 +63,24 @@ class LIFSubFunction(torch.autograd.Function):
     def backward(ctx, grad_spikes, grad_v_final, grad_v_seq):
         """
         Backward pass of the LIF function.
+        
+        Computes gradients for inputs and parameters using BPTT and surrogate gradients.
 
         Parameters
         ----------
         ctx : context
-            Context with saved tensors.
+            Context object with saved tensors.
         grad_spikes : torch.Tensor
-            Gradients w.r.t. spikes.
+            Gradient of loss w.r.t. output spikes.
         grad_v_final : torch.Tensor
-            Gradients w.r.t. final membrane potentials.
+            Gradient of loss w.r.t. final membrane potentials.
         grad_v_seq : torch.Tensor
-            Gradients w.r.t. voltage sequence.
+            Gradient of loss w.r.t. voltage sequence (unused).
 
         Returns
         -------
         tuple
-            Gradients w.r.t. inputs and parameters.
+            Gradients w.r.t. (x_seq, v_init, decay, threshold, alpha, surrogate_type).
         """
         out_spikes_packed, v_seq, v_init, decay, threshold, alpha = ctx.saved_tensors
         surrogate_type = ctx.surrogate_type

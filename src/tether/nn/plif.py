@@ -44,6 +44,16 @@ class PLIF(nn.Module):
     def forward(self, x_seq):
         """
         Forward pass of the PLIF module.
+
+        Parameters
+        ----------
+        x_seq : torch.Tensor
+            Input sequence of shape (Time, Batch, Neurons) or (Time, Batch * Neurons).
+
+        Returns
+        -------
+        torch.Tensor
+            Output spikes with the same shape as input.
         """
         orig_shape = x_seq.shape
         x_flat = x_seq.reshape(orig_shape[0], -1)

@@ -3,83 +3,168 @@ import triton.language as tl
 import torch
 
 @triton.jit
+
 def lif_fwd_kernel(
+
     X_ptr, V_init_ptr, S_out_ptr, S_packed_ptr, V_seq_ptr, V_final_ptr, 
+
     n_neurons, n_steps, decay, threshold, 
+
     BLOCK_SIZE: tl.constexpr
+
 ):
+
     """
-    Triton kernel for LIF forward pass.
+
+    Triton kernel for the Leaky Integrate-and-Fire (LIF) forward pass.
+
+    
+
+    This kernel performs the iterative update of membrane potential and spike generation
+
+    for a batch of neurons over a temporal sequence.
+
+
 
     Parameters
+
     ----------
+
     X_ptr : pointer
-        Input sequence.
+
+        Input current sequence pointer. Shape: (n_steps, n_neurons).
+
     V_init_ptr : pointer
-        Initial membrane potentials.
+
+        Initial membrane potential pointer. Shape: (n_neurons,).
+
     S_out_ptr : pointer
-        Output spikes.
+
+        Output spikes pointer (float). Shape: (n_steps, n_neurons).
+
     S_packed_ptr : pointer
-        Packed spikes.
+
+        Packed output spikes pointer (int32). Shape: (ceil(n_steps/32), n_neurons).
+
     V_seq_ptr : pointer
-        Membrane potential sequence.
+
+        Membrane potential sequence pointer. Shape: (n_steps, n_neurons).
+
     V_final_ptr : pointer
-        Final membrane potentials.
+
+        Final membrane potential pointer. Shape: (n_neurons,).
+
     n_neurons : int
+
         Number of neurons.
+
     n_steps : int
+
         Number of time steps.
+
     decay : float
-        Decay factor.
+
+        Membrane potential decay factor (scalar).
+
     threshold : float
-        Spiking threshold.
+
+        Spiking threshold (scalar).
+
     BLOCK_SIZE : int
-        Block size for Triton.
+
+        Triton block size configuration.
+
     """
+
     pid = tl.program_id(0)
+
     offsets = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
+
     mask = offsets < n_neurons
 
+
+
     v = tl.load(V_init_ptr + offsets, mask=mask)
+
     
+
     # Accumulator for bit-packing
+
     packed_spikes = tl.zeros([BLOCK_SIZE], dtype=tl.int32)
+
     
+
     for t in range(n_steps):
+
         # Memory layout: [Time, Neurons]
+
         x = tl.load(X_ptr + t * n_neurons + offsets, mask=mask)
+
         v = v * decay + x
+
         
+
         # Store membrane potential BEFORE reset
+
         tl.store(V_seq_ptr + t * n_neurons + offsets, v, mask=mask)
+
         
+
         spike_bool = v >= threshold
+
         spike_float = spike_bool.to(tl.float32)
+
         
+
         tl.store(S_out_ptr + t * n_neurons + offsets, spike_float, mask=mask)
+
         
+
         # Bit Packing Logic
+
         bit_idx = t % 32
+
         bit_val = (1 << bit_idx)
+
         added_bit = tl.where(spike_bool, bit_val, 0)
+
         packed_spikes = packed_spikes | added_bit
+
         
+
         # If we just filled the last bit of an int32, store it
+
         if bit_idx == 31:
+
             block_idx = t // 32
+
             tl.store(S_packed_ptr + block_idx * n_neurons + offsets, packed_spikes, mask=mask)
+
             # Reset accumulator
+
             packed_spikes = tl.zeros([BLOCK_SIZE], dtype=tl.int32)
+
         
+
         # Hard reset
+
         v = tl.where(spike_bool, 0.0, v)
+
         
+
     tl.store(V_final_ptr + offsets, v, mask=mask)
+
     
+
     # Store remaining bits if any
+
     if (n_steps % 32) != 0:
+
         block_idx = n_steps // 32
+
         tl.store(S_packed_ptr + block_idx * n_neurons + offsets, packed_spikes, mask=mask)
+
+
 
 @triton.jit
 
@@ -101,7 +186,13 @@ def lif_bwd_kernel(
 
     """
 
-    Triton kernel for LIF backward pass.
+    Triton kernel for the Leaky Integrate-and-Fire (LIF) backward pass.
+
+    
+
+    Computes gradients for inputs and parameters using Backpropagation Through Time (BPTT)
+
+    with a surrogate gradient for the non-differentiable spiking step.
 
 
 
@@ -111,27 +202,27 @@ def lif_bwd_kernel(
 
     GRAD_OUT_ptr : pointer
 
-        Gradients w.r.t. output spikes.
+        Gradient w.r.t. output spikes. Shape: (n_steps, n_neurons).
 
     S_packed_ptr : pointer
 
-        Packed spikes.
+        Packed spikes from forward pass. Shape: (ceil(n_steps/32), n_neurons).
 
     V_seq_ptr : pointer
 
-        Membrane potential sequence.
+        Membrane potential sequence. Shape: (n_steps, n_neurons).
 
     GRAD_X_ptr : pointer
 
-        Gradients w.r.t. input.
+        Output gradient w.r.t. input current. Shape: (n_steps, n_neurons).
 
     GRAD_V_FINAL_ptr : pointer
 
-        Gradients w.r.t. final potentials.
+        Gradient w.r.t. final membrane potential. Shape: (n_neurons,).
 
     V_init_ptr : pointer
 
-        Initial potentials.
+        Initial membrane potential. Shape: (n_neurons,).
 
     n_neurons : int
 
@@ -143,27 +234,27 @@ def lif_bwd_kernel(
 
     decay_ptr : pointer
 
-        Decay parameter.
+        Pointer to decay parameter (scalar).
 
     threshold_ptr : pointer
 
-        Threshold parameter.
+        Pointer to threshold parameter (scalar).
 
     alpha_ptr : pointer
 
-        Alpha parameter.
+        Pointer to alpha parameter (scalar).
 
     GRAD_DECAY_ptr : pointer
 
-        Gradients w.r.t. decay.
+        Output gradient w.r.t. decay.
 
     GRAD_THRESHOLD_ptr : pointer
 
-        Gradients w.r.t. threshold.
+        Output gradient w.r.t. threshold.
 
     GRAD_ALPHA_ptr : pointer
 
-        Gradients w.r.t. alpha.
+        Output gradient w.r.t. alpha.
 
     surrogate_type : int
 
@@ -171,13 +262,15 @@ def lif_bwd_kernel(
 
     BLOCK_SIZE : int
 
-        Block size for Triton.
+        Triton block size configuration.
 
     """
 
     pid = tl.program_id(0)
 
     offsets = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
+
+
 
     mask = offsets < n_neurons
 

@@ -4,6 +4,10 @@ on:
     branches:
       - main
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Semantic Release & Publish"]
+    types:
+      - completed
 
 permissions:
   contents: read
@@ -12,12 +16,14 @@ permissions:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.ref }}
 
       - name: Install uv
         run: curl -LsSf https://astral.sh/uv/install.sh | sh

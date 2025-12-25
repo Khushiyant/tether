@@ -9,7 +9,35 @@ def plif_fwd_kernel(
     BLOCK_SIZE: tl.constexpr
 ):
     """
-    Triton kernel for PLIF forward pass (Vector Parameters).
+    Triton kernel for the forward pass of Parametric Leaky Integrate-and-Fire (PLIF) neurons.
+    
+    This kernel handles vector-valued decay and threshold parameters, allowing each neuron 
+    to have independent dynamics.
+
+    Parameters
+    ----------
+    X_ptr : pointer
+        Input sequence pointer. Shape: (n_steps, n_neurons).
+    V_init_ptr : pointer
+        Initial membrane potential pointer. Shape: (n_neurons,).
+    S_out_ptr : pointer
+        Output spikes pointer (float). Shape: (n_steps, n_neurons).
+    S_packed_ptr : pointer
+        Packed output spikes pointer (int32). Shape: (ceil(n_steps/32), n_neurons).
+    V_seq_ptr : pointer
+        Membrane potential sequence pointer. Shape: (n_steps, n_neurons).
+    V_final_ptr : pointer
+        Final membrane potential pointer. Shape: (n_neurons,).
+    n_neurons : int
+        Number of neurons.
+    n_steps : int
+        Number of time steps.
+    decay_ptr : pointer
+        Pointer to decay factor vector. Shape: (n_neurons,).
+    threshold_ptr : pointer
+        Pointer to threshold vector. Shape: (n_neurons,).
+    BLOCK_SIZE : int
+        Triton block size configuration.
     """
     pid = tl.program_id(0)
     offsets = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
@@ -62,7 +90,45 @@ def plif_bwd_kernel(
     BLOCK_SIZE: tl.constexpr
 ):
     """
-    Triton kernel for PLIF backward pass (Vector Parameters).
+    Triton kernel for the backward pass of Parametric Leaky Integrate-and-Fire (PLIF) neurons.
+    
+    Computes gradients for input sequence, initial potentials, and vector-valued learnable 
+    parameters (decay, threshold) using the specified surrogate gradient.
+
+    Parameters
+    ----------
+    GRAD_OUT_ptr : pointer
+        Gradient w.r.t output spikes. Shape: (n_steps, n_neurons).
+    S_packed_ptr : pointer
+        Packed output spikes. Shape: (ceil(n_steps/32), n_neurons).
+    V_seq_ptr : pointer
+        Membrane potential sequence. Shape: (n_steps, n_neurons).
+    GRAD_X_ptr : pointer
+        Output gradient w.r.t input. Shape: (n_steps, n_neurons).
+    GRAD_V_FINAL_ptr : pointer
+        Gradient w.r.t final membrane potential. Shape: (n_neurons,).
+    V_init_ptr : pointer
+        Initial membrane potential. Shape: (n_neurons,).
+    n_neurons : int
+        Number of neurons.
+    n_steps : int
+        Number of time steps.
+    decay_ptr : pointer
+        Pointer to decay factor vector.
+    threshold_ptr : pointer
+        Pointer to threshold vector.
+    alpha_ptr : pointer
+        Pointer to surrogate alpha parameter (scalar).
+    GRAD_DECAY_ptr : pointer
+        Output gradient w.r.t decay vector. Shape: (n_neurons,).
+    GRAD_THRESHOLD_ptr : pointer
+        Output gradient w.r.t threshold vector. Shape: (n_neurons,).
+    GRAD_ALPHA_ptr : pointer
+        Output gradient w.r.t alpha parameter (accumulated scalar).
+    surrogate_type : int
+        Surrogate gradient type ID (0: Arctan, 1: Sigmoid, 2: FastSigmoid).
+    BLOCK_SIZE : int
+        Triton block size configuration.
     """
     pid = tl.program_id(0)
     offsets = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)

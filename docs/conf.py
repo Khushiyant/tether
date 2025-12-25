@@ -59,7 +59,7 @@ html_theme = "furo"
 
 # Optional: Furo specific customization
 html_theme_options = {
-    "source_repository": "https://github.com/Khushiyant/tenso",
+    "source_repository": "https://github.com/Khushiyant/tether",
     "source_branch": "main",
     "source_directory": "docs/source/",
 }
