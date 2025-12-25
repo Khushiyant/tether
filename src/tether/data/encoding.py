@@ -32,7 +32,7 @@ def rate_encoding(x: torch.Tensor, n_steps: int, gain: float = 1.0) -> torch.Ten
     Returns
     -------
     torch.Tensor
-        Spike tensor with shape (n_steps, *x.shape).
+        Spike tensor with shape (n_steps, \*x.shape).
     """
     shape = (n_steps,) + x.shape
     prob = torch.clamp(x * gain, 0.0, 1.0)
@@ -62,7 +62,7 @@ def latency_encoding(x: torch.Tensor, n_steps: int, tau: float = 1.0, threshold:
     Returns
     -------
     torch.Tensor
-        Spike tensor with shape (n_steps, *x.shape).
+        Spike tensor with shape (n_steps, \*x.shape).
     """
     # Calculate fire time: t_f = tau * ln(x / (x - theta)) ? 
     # Or simplified: t_f = (1 - x) * n_steps

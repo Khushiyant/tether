@@ -32,10 +32,11 @@ class Surrogate(nn.Module):
         raise NotImplementedError
 
 class Arctan(Surrogate):
-    """
+    r"""
     Arctan surrogate gradient.
 
     The surrogate derivative is given by:
+
     .. math::
         f'(x) = \\frac{1}{1 + (\\alpha \\pi x)^2}
 
@@ -45,10 +46,11 @@ class Arctan(Surrogate):
         return 0
 
 class Sigmoid(Surrogate):
-    """
+    r"""
     Sigmoid surrogate gradient.
 
     The surrogate function is a sigmoid, and its derivative is:
+
     .. math::
         f'(x) = \\alpha \\cdot \\sigma(\\alpha x) \\cdot (1 - \\sigma(\\alpha x))
 
@@ -58,10 +60,11 @@ class Sigmoid(Surrogate):
         return 1
 
 class FastSigmoid(Surrogate):
-    """
+    r"""
     Fast Sigmoid (approximated) surrogate gradient.
     
     Uses a computationally cheaper approximation of the sigmoid derivative:
+
     .. math::
         f'(x) = \\frac{1}{(1 + |\\alpha x|)^2}
         
