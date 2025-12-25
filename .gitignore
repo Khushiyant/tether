@@ -15,3 +15,5 @@ input.txt
 docs/_build/
 docs/tether.*.rst
 docs/modules.rst
+
+data/
