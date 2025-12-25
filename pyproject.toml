@@ -1,6 +1,6 @@
 [project]
 name = "tetherpy"
-version = "0.1.0"
+version = "0.1.1"
 description = "Triton-powered framework for training and deploying Spiking Transformers."
 readme = "README.md"
 requires-python = ">=3.10"

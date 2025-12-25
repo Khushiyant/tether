@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v0.1.1 (2025-12-25)
+
+### Bug Fixes
+
+- Enhance LIF and PLIF implementations with detailed documentation, improve Triton kernels, and
+  update workflow for semantic release
+  ([`99c7532`](https://github.com/Khushiyant/tether/commit/99c75322c986d0e188f239c7f4626ef200e61e87))
+
+
 ## v0.1.0 (2025-12-25)
 
 ### Chores
