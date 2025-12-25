@@ -22,7 +22,7 @@ docs = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tetherpy"]
+packages = ["src/tether"]
 
 
 [tool.semantic_release]
