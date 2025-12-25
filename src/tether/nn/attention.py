@@ -57,6 +57,7 @@ class SpikingSelfAttention(nn.Module):
         torch.Tensor
             Output sequence of shape (T, B, N, D).
         """
+        T, B, N, D = x_seq.shape
         x_flat = x_seq.view(T, B * N, D)
         
         # Q, K, V Generation through LIF neurons
