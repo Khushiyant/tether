@@ -17,7 +17,7 @@ where = ["src"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "pytest>=9.0.2",
 ]
