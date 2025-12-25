@@ -1,12 +1,45 @@
 import os
 import sys
 # Ensure Sphinx can find the source code
-sys.path.insert(0, os.path.abspath('../src'))
+sys.path.insert(0, os.path.abspath("../src"))
+
+
+def get_project_metadata():
+    import pathlib
+    import sys
+
+    pyproject_path = pathlib.Path(__file__).parents[2] / "pyproject.toml"
+    if sys.version_info >= (3, 11):
+        import tomllib
+
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+    else:
+        try:
+            import tomli
+
+            with open(pyproject_path, "rb") as f:
+                data = tomli.load(f)
+        except ImportError:
+            return {}
+    project = data.get("project", {})
+    author = project.get("authors", [{}])[0].get("name", "")
+    copyright_year = re.search(r"\\d{4}", project.get("version", ""))
+    copyright_str = f"{copyright_year.group(0) if copyright_year else ''}, {author}"
+    return {
+        "project": project.get("name", "SheetWise"),
+        "author": author,
+        "release": project.get("version", "0.0.0"),
+        "copyright": copyright_str,
+    }
+
+
+meta = get_project_metadata()
 
 project = 'Tether'
 copyright = '2025, Khushiyant'
-author = 'Khushiyant'
-release = '0.0.1'
+author = meta.get("author", "Khushiyant")
+release = meta.get("release", "0.6.0")
 
 extensions = [
     'sphinx.ext.autodoc',      # Core library for html generation from docstrings
@@ -20,10 +53,12 @@ extensions = [
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
-# Use the Read the Docs theme
-html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
+html_static_path = ["_static"]
+html_theme = "furo"
 
-# Napoleon settings to handle your current docstring style
-napoleon_google_docstring = False
-napoleon_numpy_docstring = True
+# Optional: Furo specific customization
+html_theme_options = {
+    "source_repository": "https://github.com/Khushiyant/tenso",
+    "source_branch": "main",
+    "source_directory": "docs/source/",
+}
