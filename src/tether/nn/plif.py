@@ -3,8 +3,17 @@ import torch.nn as nn
 from ..functional.plif import PLIFSubFunction
 from .surrogates import Surrogate, Arctan
 
+
 class PLIF(nn.Module):
-    def __init__(self, n_neurons, init_decay=0.9, init_threshold=1.0, alpha=2.0, surrogate: Surrogate = None, store_traces=False):
+    def __init__(
+        self,
+        n_neurons,
+        init_decay=0.9,
+        init_threshold=1.0,
+        alpha=2.0,
+        surrogate: Surrogate = None,
+        store_traces=False,
+    ):
         """
         Initialize the Parametric LIF (PLIF) module.
         Decay and Threshold are learnable vectors per neuron.
@@ -26,16 +35,16 @@ class PLIF(nn.Module):
         """
         super().__init__()
         self.n_neurons = n_neurons
-        
+
         # Learnable vector parameters
         self.decay = nn.Parameter(torch.full((n_neurons,), init_decay))
         self.threshold = nn.Parameter(torch.full((n_neurons,), init_threshold))
-        
+
         if surrogate is None:
             self.surrogate = Arctan(alpha=alpha, trainable=True)
         else:
             self.surrogate = surrogate
-            
+
         self.store_traces = store_traces
         self.register_buffer("v", torch.zeros(n_neurons))
         self.v_seq = None
@@ -57,19 +66,24 @@ class PLIF(nn.Module):
         """
         orig_shape = x_seq.shape
         x_flat = x_seq.reshape(orig_shape[0], -1)
-        
+
         if self.v.shape[0] != x_flat.shape[1]:
             self.v = torch.zeros(x_flat.shape[1], device=x_seq.device)
 
         spikes, v_next, v_seq = PLIFSubFunction.apply(
-            x_flat, self.v, self.decay, self.threshold, self.surrogate.alpha, self.surrogate.get_id()
+            x_flat,
+            self.v,
+            self.decay,
+            self.threshold,
+            self.surrogate.alpha,
+            self.surrogate.get_id(),
         )
-        
+
         if self.store_traces:
             self.v_seq = v_seq.detach().reshape(orig_shape)
         else:
             self.v_seq = None
-        
+
         self.firing_rate = spikes.mean().item()
         self.v = v_next.detach()
         return spikes.reshape(orig_shape)

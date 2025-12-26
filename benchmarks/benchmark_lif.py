@@ -1,13 +1,13 @@
 import torch
-import triton
 import time
 import sys
 import os
 
 # Add src to path so we can import tether
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 from tether.functional.lif import LIFSubFunction
+
 
 def lif_pytorch(x_seq, v_init, decay, threshold):
     """
@@ -31,24 +31,25 @@ def lif_pytorch(x_seq, v_init, decay, threshold):
     """
     # x_seq: (Time, Neurons)
     # v_init: (Neurons)
-    
+
     n_steps, n_neurons = x_seq.shape
     v = v_init.clone()
     spikes_list = []
-    
+
     # We use a simple loop as LIF is recurrent
     # This simulates "Vanilla PyTorch" without custom CUDA kernels or JIT
     for t in range(n_steps):
         x = x_seq[t]
         v = v * decay + x
-        
+
         spike = (v >= threshold).float()
         spikes_list.append(spike)
-        
+
         # Hard reset
         v = v * (1.0 - spike)
-        
+
     return torch.stack(spikes_list)
+
 
 def benchmark():
     """
@@ -64,10 +65,10 @@ def benchmark():
     # Dimensions
     # Simulating a reasonable layer size for a Transformer
     batch_size = 32
-    seq_len = 2048 # Longer context to emphasize the loop overhead vs kernel
-    dim = 768      # Standard BERT-base dimension
+    seq_len = 2048  # Longer context to emphasize the loop overhead vs kernel
+    dim = 768  # Standard BERT-base dimension
     n_neurons = batch_size * dim
-    
+
     # Inputs
     x_seq = torch.randn(seq_len, n_neurons, device=device)
     v_init = torch.zeros(n_neurons, device=device)
@@ -81,7 +82,7 @@ def benchmark():
         with torch.no_grad():
             _ = lif_pytorch(x_seq, v_init, decay, threshold)
             LIFSubFunction.apply(x_seq, v_init, decay, threshold, alpha, 0)
-    
+
     # Benchmark PyTorch
     torch.cuda.synchronize()
     start_time = time.time()
@@ -103,8 +104,9 @@ def benchmark():
     torch.cuda.synchronize()
     triton_time = (time.time() - start_time) / iterations
     print(f"Triton Time:  {triton_time * 1000:.3f} ms")
-    
+
     print(f"Speedup: {pytorch_time / triton_time:.2f}x")
+
 
 if __name__ == "__main__":
     benchmark()

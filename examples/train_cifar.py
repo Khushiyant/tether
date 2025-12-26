@@ -6,13 +6,14 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from tether.nn import LIF
 from tether.data import SpikingDatasetWrapper, rate_encoding
-from tether.utils.monitor import Monitor #
+from tether.utils.monitor import Monitor  #
+
 
 class SpikingCIFARModel(nn.Module):
     def __init__(self, n_steps=10):
         super().__init__()
         self.n_steps = n_steps
-        
+
         # Define layers
         self.conv_layers = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, padding=1),
@@ -20,14 +21,11 @@ class SpikingCIFARModel(nn.Module):
             nn.MaxPool2d(2),
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             LIF(64 * 16 * 16),
-            nn.MaxPool2d(2)
+            nn.MaxPool2d(2),
         )
-        
+
         self.fc_layers = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(64 * 8 * 8, 256),
-            LIF(256),
-            nn.Linear(256, 10)
+            nn.Flatten(), nn.Linear(64 * 8 * 8, 256), LIF(256), nn.Linear(256, 10)
         )
 
     def forward(self, x):
@@ -39,6 +37,7 @@ class SpikingCIFARModel(nn.Module):
             out = self.fc_layers(feat)
             outputs.append(out)
         return torch.stack(outputs).mean(0)
+
 
 def evaluate(model, loader, device):
     model.eval()
@@ -52,7 +51,8 @@ def evaluate(model, loader, device):
             pred = output.argmax(dim=1)
             correct += (pred == target).sum().item()
             total += target.size(0)
-    return 100. * correct / total
+    return 100.0 * correct / total
+
 
 def main():
     # --- Configuration ---
@@ -63,25 +63,36 @@ def main():
     lr = 1e-3
 
     # --- Data Preparation ---
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    )
 
-    train_raw = datasets.CIFAR10(root="./data", train=True, download=True, transform=transform)
-    test_raw = datasets.CIFAR10(root="./data", train=False, download=True, transform=transform)
+    train_raw = datasets.CIFAR10(
+        root="./data", train=True, download=True, transform=transform
+    )
+    test_raw = datasets.CIFAR10(
+        root="./data", train=False, download=True, transform=transform
+    )
 
-    train_ds = SpikingDatasetWrapper(train_raw, encode_fn=lambda x: rate_encoding(x, n_steps=n_steps))
-    test_ds = SpikingDatasetWrapper(test_raw, encode_fn=lambda x: rate_encoding(x, n_steps=n_steps))
+    train_ds = SpikingDatasetWrapper(
+        train_raw, encode_fn=lambda x: rate_encoding(x, n_steps=n_steps)
+    )
+    test_ds = SpikingDatasetWrapper(
+        test_raw, encode_fn=lambda x: rate_encoding(x, n_steps=n_steps)
+    )
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=4)
-    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(
+        train_ds, batch_size=batch_size, shuffle=True, num_workers=4
+    )
+    test_loader = DataLoader(
+        test_ds, batch_size=batch_size, shuffle=False, num_workers=4
+    )
 
     # --- Model & Monitoring ---
     model = SpikingCIFARModel(n_steps=n_steps).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
-    
+
     # Initialize the Tether Monitor
     monitor = Monitor(model)
 
@@ -115,19 +126,26 @@ def main():
         # --- End of Epoch Monitoring ---
         epoch_time = time.time() - start_time
         avg_loss = running_loss / len(train_loader)
-        train_acc = 100. * train_correct / train_total
+        train_acc = 100.0 * train_correct / train_total
         val_acc = evaluate(model, test_loader, device)
 
         # Retrieve firing rates from all LIF layers via Monitor
         firing_rates = monitor.get_firing_rates()
         # Calculate mean firing rate across the entire model
-        mean_fr = sum(firing_rates.values()) / len(firing_rates) if firing_rates else 0.0
+        mean_fr = (
+            sum(firing_rates.values()) / len(firing_rates) if firing_rates else 0.0
+        )
 
         # Print detailed report once per epoch
-        print(f"Epoch {epoch+1}/{epochs} | Time: {epoch_time:.1f}s")
-        print(f"  > Loss: {avg_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%")
-        print(f"  > Mean Firing Rate: {mean_fr:.4f} (Sparsity: {(1-mean_fr)*100:.1f}%)")
+        print(f"Epoch {epoch + 1}/{epochs} | Time: {epoch_time:.1f}s")
+        print(
+            f"  > Loss: {avg_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"
+        )
+        print(
+            f"  > Mean Firing Rate: {mean_fr:.4f} (Sparsity: {(1 - mean_fr) * 100:.1f}%)"
+        )
         print("-" * 60)
+
 
 if __name__ == "__main__":
     main()

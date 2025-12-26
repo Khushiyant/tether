@@ -1,15 +1,16 @@
 import torch
 import torch.nn as nn
-from typing import Dict, Optional, Any
+from typing import Dict, Any
 from ..nn.lif import LIF
 from ..nn.alif import ALIF
 from ..nn.plif import PLIF
 
+
 class Monitor:
     """
     Utility for monitoring Spiking Neural Network (SNN) statistics.
-    
-    This class tracks firing rates and membrane potential traces for supported layers 
+
+    This class tracks firing rates and membrane potential traces for supported layers
     (LIF, ALIF, PLIF) to aid in debugging and visualization.
 
     Parameters
@@ -17,6 +18,7 @@ class Monitor:
     model : nn.Module
         The PyTorch model to monitor.
     """
+
     def __init__(self, model: nn.Module):
         self.model = model
 
@@ -38,7 +40,7 @@ class Monitor:
     def get_voltage_traces(self) -> Dict[str, torch.Tensor]:
         """
         Retrieve recorded membrane potential traces from layers where monitoring is enabled.
-        
+
         Requires `store_traces=True` to be set on the layers (via `enable_voltage_monitoring`).
 
         Returns
@@ -56,11 +58,11 @@ class Monitor:
     def enable_voltage_monitoring(self, enable: bool = True):
         """
         Enable or disable voltage trace storage on all supported layers.
-        
+
         Parameters
         ----------
         enable : bool, optional
-            If True, enables trace storage. If False, disables it to save memory. 
+            If True, enables trace storage. If False, disables it to save memory.
             Default is True.
         """
         for module in self.model.modules():
@@ -70,7 +72,7 @@ class Monitor:
     def log_to_tensorboard(self, writer: Any, step: int, prefix: str = "snn"):
         """
         Log firing rates to TensorBoard.
-        
+
         Parameters
         ----------
         writer : torch.utils.tensorboard.SummaryWriter
@@ -98,7 +100,9 @@ class Monitor:
             Prefix for metric names.
         """
         rates = self.get_firing_rates()
-        log_dict = {f"{prefix}/firing_rate/{name}": rate for name, rate in rates.items()}
+        log_dict = {
+            f"{prefix}/firing_rate/{name}": rate for name, rate in rates.items()
+        }
         # Handle module vs run object if possible, but standard wandb.log works
-        if hasattr(wandb_module, 'log'):
-             wandb_module.log(log_dict, step=step)
+        if hasattr(wandb_module, "log"):
+            wandb_module.log(log_dict, step=step)

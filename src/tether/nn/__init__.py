@@ -6,13 +6,13 @@ from .block import SpikingTransformerBlock
 from .surrogates import Surrogate, Arctan, Sigmoid, FastSigmoid
 
 __all__ = [
-    "LIF", 
-    "ALIF", 
+    "LIF",
+    "ALIF",
     "PLIF",
-    "SpikingSelfAttention", 
+    "SpikingSelfAttention",
     "SpikingTransformerBlock",
     "Surrogate",
     "Arctan",
     "Sigmoid",
-    "FastSigmoid"
+    "FastSigmoid",
 ]

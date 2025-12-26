@@ -24,6 +24,7 @@ docs = [
     "sphinx-rtd-theme>=3.0.0",
     "myst-parser>=4.0.1",
     "furo>=2025.9.25",
+    "ruff>=0.14.10"
 ]
 
 [tool.hatch.build.targets.wheel]
