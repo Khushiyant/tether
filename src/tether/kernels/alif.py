@@ -10,7 +10,45 @@ def alif_fwd_kernel(
     BLOCK_SIZE: tl.constexpr
 ):
     """
-    Triton kernel for ALIF forward pass.
+    Triton kernel for the Adaptive Leaky Integrate-and-Fire (ALIF) forward pass.
+    
+    This kernel performs the iterative update of membrane potential and adaptive 
+    threshold for a batch of neurons over a temporal sequence.
+
+    Parameters
+    ----------
+    X_ptr : pointer
+        Input current sequence pointer. Shape: (n_steps, n_neurons).
+    V_init_ptr : pointer
+        Initial membrane potential pointer. Shape: (n_neurons,).
+    A_init_ptr : pointer
+        Initial adaptation variable pointer. Shape: (n_neurons,).
+    S_out_ptr : pointer
+        Output spikes pointer (float). Shape: (n_steps, n_neurons).
+    S_packed_ptr : pointer
+        Packed output spikes pointer (int32). Shape: (ceil(n_steps/32), n_neurons).
+    V_seq_ptr : pointer
+        Membrane potential sequence pointer. Shape: (n_steps, n_neurons).
+    V_final_ptr : pointer
+        Final membrane potential pointer. Shape: (n_neurons,).
+    A_seq_ptr : pointer
+        Adaptation variable sequence pointer. Shape: (n_steps, n_neurons).
+    A_final_ptr : pointer
+        Final adaptation variable pointer. Shape: (n_neurons,).
+    n_neurons : int
+        Number of neurons.
+    n_steps : int
+        Number of time steps.
+    decay_v : float
+        Membrane potential decay factor (scalar).
+    decay_a : float
+        Adaptation variable decay factor (scalar).
+    threshold_base : float
+        Base spiking threshold (scalar).
+    beta : float
+        Adaptive threshold scaling factor (scalar).
+    BLOCK_SIZE : int
+        Triton block size configuration.
     """
     pid = tl.program_id(0)
     offsets = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
@@ -69,6 +107,59 @@ def alif_bwd_kernel(
     GRAD_DECAY_V_ptr, GRAD_DECAY_A_ptr, GRAD_THRESHOLD_ptr, GRAD_BETA_ptr, GRAD_ALPHA_ptr,
     BLOCK_SIZE: tl.constexpr
 ):
+    """
+    Triton kernel for the Adaptive Leaky Integrate-and-Fire (ALIF) backward pass.
+    
+    Computes gradients for inputs and parameters using Backpropagation Through Time (BPTT)
+    with a surrogate gradient for the non-differentiable spiking step.
+
+    Parameters
+    ----------
+    GRAD_OUT_ptr : pointer
+        Gradient w.r.t. output spikes. Shape: (n_steps, n_neurons).
+    S_packed_ptr : pointer
+        Packed spikes from forward pass. Shape: (ceil(n_steps/32), n_neurons).
+    V_seq_ptr : pointer
+        Membrane potential sequence. Shape: (n_steps, n_neurons).
+    A_seq_ptr : pointer
+        Adaptation variable sequence. Shape: (n_steps, n_neurons).
+    GRAD_X_ptr : pointer
+        Output gradient w.r.t. input current. Shape: (n_steps, n_neurons).
+    GRAD_V_FINAL_ptr : pointer
+        Gradient w.r.t. final membrane potential. Shape: (n_neurons,).
+    GRAD_A_FINAL_ptr : pointer
+        Gradient w.r.t. final adaptation variable. Shape: (n_neurons,).
+    V_init_ptr : pointer
+        Initial membrane potential. Shape: (n_neurons,).
+    A_init_ptr : pointer
+        Initial adaptation variable. Shape: (n_neurons,).
+    n_neurons : int
+        Number of neurons.
+    n_steps : int
+        Number of time steps.
+    decay_v_ptr : pointer
+        Pointer to membrane potential decay parameter (scalar).
+    decay_a_ptr : pointer
+        Pointer to adaptation variable decay parameter (scalar).
+    threshold_ptr : pointer
+        Pointer to base threshold parameter (scalar).
+    beta_ptr : pointer
+        Pointer to beta parameter (scalar).
+    alpha_ptr : pointer
+        Pointer to alpha parameter (scalar).
+    GRAD_DECAY_V_ptr : pointer
+        Output gradient w.r.t. decay_v.
+    GRAD_DECAY_A_ptr : pointer
+        Output gradient w.r.t. decay_a.
+    GRAD_THRESHOLD_ptr : pointer
+        Output gradient w.r.t. threshold.
+    GRAD_BETA_ptr : pointer
+        Output gradient w.r.t. beta.
+    GRAD_ALPHA_ptr : pointer
+        Output gradient w.r.t. alpha.
+    BLOCK_SIZE : int
+        Triton block size configuration.
+    """
     pid = tl.program_id(0)
     offsets = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
     mask = offsets < n_neurons
