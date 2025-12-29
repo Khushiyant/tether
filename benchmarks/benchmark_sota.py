@@ -117,78 +117,77 @@ class GPUMonitor:
 # MODEL DEFINITIONS
 # ============================================================================
 
+class TimeDistributed(nn.Module):
+    """Processes the entire sequence through a standard 2D layer by folding Time into Batch."""
+    def __init__(self, module):
+        super().__init__()
+        self.module = module
+
+    def forward(self, x):
+        # x shape: (Time, Batch, C, H, W) or (Time, Batch, Features)
+        T, B = x.shape[:2]
+        # Reshape to (T*B, ...) for standard PyTorch layers
+        x_reshaped = x.reshape(T * B, *x.shape[2:])
+        y = self.module(x_reshaped)
+        # Reshape back to (Time, Batch, ...)
+        return y.reshape(T, B, *y.shape[1:])
+
 class TetherCIFAR10Model(nn.Module):
-    """Tether model for CIFAR-10."""
+    """Refactored Tether model for CIFAR-10 using Fused Temporal Processing."""
     def __init__(self, n_steps=10):
         super().__init__()
         self.n_steps = n_steps
         
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 64, 3, padding=1),
+        self.model = nn.Sequential(
+            TimeDistributed(nn.Conv2d(3, 64, 3, padding=1)),
             TetherLIF(64 * 32 * 32),
-            nn.AvgPool2d(2),
-            nn.Conv2d(64, 128, 3, padding=1),
+            TimeDistributed(nn.AvgPool2d(2)),
+            TimeDistributed(nn.Conv2d(64, 128, 3, padding=1)),
             TetherLIF(128 * 16 * 16),
-            nn.AvgPool2d(2),
-        )
-        
-        self.classifier = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(128 * 8 * 8, 256),
+            TimeDistributed(nn.AvgPool2d(2)),
+            TimeDistributed(nn.Flatten()),
+            TimeDistributed(nn.Linear(128 * 8 * 8, 256)),
             TetherLIF(256),
-            nn.Linear(256, 10)
+            TimeDistributed(nn.Linear(256, 10))
         )
     
     def forward(self, x):
-        # x: (Batch, Time, C, H, W) or (Time, Batch, C, H, W)
-        if len(x.shape) == 5 and x.shape[0] != self.n_steps:
-            x = x.transpose(0, 1)  # (Time, Batch, C, H, W)
-        
-        outputs = []
-        for t in range(self.n_steps):
-            x_t = x[t]
-            feat = self.features(x_t)
-            out = self.classifier(feat)
-            outputs.append(out)
-        
-        return torch.stack(outputs).mean(0)
-
-
-class TetherMNISTModel(nn.Module):
-    """Tether model for MNIST."""
-    def __init__(self, n_steps=10):
-        super().__init__()
-        self.n_steps = n_steps
-        
-        self.features = nn.Sequential(
-            nn.Conv2d(1, 32, 3, padding=1),
-            TetherLIF(32 * 28 * 28),
-            nn.AvgPool2d(2),
-            nn.Conv2d(32, 64, 3, padding=1),
-            TetherLIF(64 * 14 * 14),
-            nn.AvgPool2d(2),
-        )
-        
-        self.classifier = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(64 * 7 * 7, 128),
-            TetherLIF(128),
-            nn.Linear(128, 10)
-        )
-    
-    def forward(self, x):
-        if len(x.shape) == 5 and x.shape[0] != self.n_steps:
+        if len(x.shape) == 5 and x.shape[1] == self.n_steps:
             x = x.transpose(0, 1)
         
-        outputs = []
-        for t in range(self.n_steps):
-            x_t = x[t]
-            feat = self.features(x_t)
-            out = self.classifier(feat)
-            outputs.append(out)
-        
-        return torch.stack(outputs).mean(0)
+        x = self.model(x)
+        return x.mean(0)
 
+class TetherMNISTModel(nn.Module):
+    """Refactored Tether model for MNIST using Fused Temporal Processing."""
+    def __init__(self, n_steps=10):
+        super().__init__()
+        self.n_steps = n_steps
+        
+        self.model = nn.Sequential(
+            TimeDistributed(nn.Conv2d(1, 32, 3, padding=1)),
+            TetherLIF(32 * 28 * 28), # Fused LIF: Processes entire T sequence at once
+            TimeDistributed(nn.AvgPool2d(2)),
+            TimeDistributed(nn.Conv2d(32, 64, 3, padding=1)),
+            TetherLIF(64 * 14 * 14),
+            TimeDistributed(nn.AvgPool2d(2)),
+            TimeDistributed(nn.Flatten()),
+            TimeDistributed(nn.Linear(64 * 7 * 7, 128)),
+            TetherLIF(128),
+            TimeDistributed(nn.Linear(128, 10))
+        )
+    
+    def forward(self, x):
+        # Ensure Time is the first dimension: (Time, Batch, C, H, W)
+        if len(x.shape) == 5 and x.shape[1] == self.n_steps:
+            x = x.transpose(0, 1)
+        
+        # Process the entire sequence through the model in one go
+        # No more manual 'for t in range(n_steps)' loop!
+        x = self.model(x)
+        
+        # Mean over time for the final classification output
+        return x.mean(0)
 
 class SNNTorchCIFAR10Model(nn.Module):
     """snnTorch model for CIFAR-10."""
