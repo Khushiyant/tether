@@ -222,16 +222,16 @@ class SNNTorchCIFAR10Model(nn.Module):
             x_t = x[:, t] if x.shape[1] == self.n_steps else x[t]
             
             cur = self.conv1(x_t)
-            spk, _ = self.lif1(cur)
+            spk = self.lif1(cur)
             cur = self.pool1(spk)
             
             cur = self.conv2(cur)
-            spk, _ = self.lif2(cur)
+            spk = self.lif2(cur)
             cur = self.pool2(spk)
             
             cur = self.flatten(cur)
             cur = self.fc1(cur)
-            spk, _ = self.lif3(cur)
+            spk = self.lif3(cur)
             cur = self.fc2(spk)
             
             outputs.append(cur)
@@ -261,6 +261,7 @@ class SNNTorchMNISTModel(nn.Module):
         self.fc2 = nn.Linear(128, 10)
     
     def forward(self, x):
+        # Reset hidden states
         self.lif1.init_leaky()
         self.lif2.init_leaky()
         self.lif3.init_leaky()
@@ -270,16 +271,16 @@ class SNNTorchMNISTModel(nn.Module):
             x_t = x[:, t] if x.shape[1] == self.n_steps else x[t]
             
             cur = self.conv1(x_t)
-            spk, _ = self.lif1(cur)
+            spk = self.lif1(cur)
             cur = self.pool1(spk)
             
             cur = self.conv2(cur)
-            spk, _ = self.lif2(cur)
+            spk = self.lif2(cur)
             cur = self.pool2(spk)
             
             cur = self.flatten(cur)
             cur = self.fc1(cur)
-            spk, _ = self.lif3(cur)
+            spk = self.lif3(cur)
             cur = self.fc2(spk)
             
             outputs.append(cur)
