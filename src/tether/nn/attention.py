@@ -77,13 +77,15 @@ class SpikingSelfAttention(nn.Module):
         if torch.cuda.is_available():
             try:
                 from ..kernels.attention import causal_linear_attention_fused
-                
+
                 # Check state compatibility
                 if self.kv_state is not None:
                     if self.kv_state.shape[0] != B:
                         self.kv_state = None
-                
-                out, self.kv_state = causal_linear_attention_fused(q, k, v, self.kv_state)
+
+                out, self.kv_state = causal_linear_attention_fused(
+                    q, k, v, self.kv_state
+                )
                 # self.kv_state is already detached in the kernel return logic if we implemented it right?
                 # Actually my kernel wrapper returns a new tensor. It is attached to graph if created via torch.empty?
                 # Wait, the wrapper returns `out` (attached?) and `state_out` (attached?).
@@ -91,7 +93,7 @@ class SpikingSelfAttention(nn.Module):
                 # Usually we want `state_out` to be detached for the next iteration if it's truncated BPTT?
                 # The original code did `self.kv_state = context[-1].detach()`.
                 self.kv_state = self.kv_state.detach()
-                
+
             except (ImportError, RuntimeError):
                 # Fallback
                 kv = k * v
@@ -107,18 +109,18 @@ class SpikingSelfAttention(nn.Module):
                 self.kv_state = context[-1].detach()
                 out = q * context
         else:
-             kv = k * v
-             context = torch.cumsum(kv, dim=0)
+            kv = k * v
+            context = torch.cumsum(kv, dim=0)
 
-             if self.kv_state is not None:
-                 if self.kv_state.shape[0] != B:
-                     self.kv_state = torch.zeros(
-                         B, self.num_heads, N, self.head_dim, device=x_seq.device
-                     )
-                 context = context + self.kv_state
+            if self.kv_state is not None:
+                if self.kv_state.shape[0] != B:
+                    self.kv_state = torch.zeros(
+                        B, self.num_heads, N, self.head_dim, device=x_seq.device
+                    )
+                context = context + self.kv_state
 
-             self.kv_state = context[-1].detach()
-             out = q * context
+            self.kv_state = context[-1].detach()
+            out = q * context
 
         out = out.view(T, B * N, D)
         return self.proj(out).view(T, B, N, D)
