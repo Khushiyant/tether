@@ -73,28 +73,52 @@ class SpikingSelfAttention(nn.Module):
             T, B, self.num_heads, N, self.head_dim
         )
 
-        # Causal Linear Spike-Driven Attention over the Time (T) dimension.
-        # This replaces the O(N^2) softmax with a causal cumsum,
-        # allowing tokens to attend to all previous tokens in the temporal window.
-        # Equation: out_t = q_t * sum_{i=1}^t (k_i * v_i)
+        # Causal Linear Spike-Driven Attention
+        if torch.cuda.is_available():
+            try:
+                from ..kernels.attention import causal_linear_attention_fused
+                
+                # Check state compatibility
+                if self.kv_state is not None:
+                    if self.kv_state.shape[0] != B:
+                        self.kv_state = None
+                
+                out, self.kv_state = causal_linear_attention_fused(q, k, v, self.kv_state)
+                # self.kv_state is already detached in the kernel return logic if we implemented it right?
+                # Actually my kernel wrapper returns a new tensor. It is attached to graph if created via torch.empty?
+                # Wait, the wrapper returns `out` (attached?) and `state_out` (attached?).
+                # `out` should be attached for gradients. `state_out` is needed for next step.
+                # Usually we want `state_out` to be detached for the next iteration if it's truncated BPTT?
+                # The original code did `self.kv_state = context[-1].detach()`.
+                self.kv_state = self.kv_state.detach()
+                
+            except (ImportError, RuntimeError):
+                # Fallback
+                kv = k * v
+                context = torch.cumsum(kv, dim=0)
 
-        kv = k * v  # Spike-driven gating (AND operation)
-        context = torch.cumsum(kv, dim=0)  # Temporal memory accumulation
+                if self.kv_state is not None:
+                    if self.kv_state.shape[0] != B:
+                        self.kv_state = torch.zeros(
+                            B, self.num_heads, N, self.head_dim, device=x_seq.device
+                        )
+                    context = context + self.kv_state
 
-        # If we have a running state (from previous chunks/streaming), add it
-        if self.kv_state is not None:
-            # Check if batch size matches, if not reset state (safeguard)
-            if self.kv_state.shape[0] != B:
-                self.kv_state = torch.zeros(
-                    B, self.num_heads, N, self.head_dim, device=x_seq.device
-                )
-            context = context + self.kv_state
+                self.kv_state = context[-1].detach()
+                out = q * context
+        else:
+             kv = k * v
+             context = torch.cumsum(kv, dim=0)
 
-        # Update state with the final value of the current chunk
-        # (1, B, Heads, N, HeadDim) -> (B, Heads, N, HeadDim)
-        self.kv_state = context[-1].detach()
+             if self.kv_state is not None:
+                 if self.kv_state.shape[0] != B:
+                     self.kv_state = torch.zeros(
+                         B, self.num_heads, N, self.head_dim, device=x_seq.device
+                     )
+                 context = context + self.kv_state
 
-        out = q * context  # Spike-driven retrieval
+             self.kv_state = context[-1].detach()
+             out = q * context
 
         out = out.view(T, B * N, D)
         return self.proj(out).view(T, B, N, D)

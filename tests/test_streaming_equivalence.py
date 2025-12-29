@@ -4,6 +4,7 @@ import os
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../examples")))
 
 from train_stories import TetherLM
 
